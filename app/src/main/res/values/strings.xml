@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">DocSnap Android</string>
+    <string name="skeleton_message">DocSnap Android\nCamera coming in step 2.</string>
+</resources>
