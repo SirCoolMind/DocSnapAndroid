@@ -1,4 +1,16 @@
 <resources>
     <string name="app_name">DocSnap Android</string>
-    <string name="skeleton_message">DocSnap Android\nCamera coming in step 2.</string>
+
+    <!-- Camera permission -->
+    <string name="permission_title">Camera access needed</string>
+    <string name="permission_body">DocSnap reads text through the camera. Pictures and text stay on this phone: the app has no internet access.</string>
+    <string name="permission_grant">Allow camera</string>
+    <string name="permission_settings">Open settings</string>
+
+    <!-- Camera screen -->
+    <string name="mode_scan">Scan</string>
+    <string name="mode_live">Live</string>
+    <string name="shutter">Shutter</string>
+    <string name="flashlight">Flashlight</string>
+    <string name="import_photo">Import photo</string>
 </resources>
