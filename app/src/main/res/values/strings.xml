@@ -40,4 +40,15 @@
     <string name="copy_all">Copy all</string>
     <string name="share_text">Share text</string>
     <string name="no_text_found">No text found</string>
+
+    <!-- About -->
+    <string name="more_options">More options</string>
+    <string name="about">About</string>
+    <string name="about_name">DocSnap for Android</string>
+    <string name="about_version">v.%1$s</string>
+    <string name="about_stack">Built with Kotlin and Jetpack Compose. CameraX runs the camera, Google ML Kit Text Recognition (bundled in the app) reads the text, and OpenCV finds and flattens the page.</string>
+    <string name="about_privacy">Everything happens on this phone. The app has no internet permission, so photos and text never leave it.</string>
+    <string name="about_link_note">Opens in your browser</string>
+    <string name="no_browser">No browser to open the link</string>
+    <string name="close">Close</string>
 </resources>

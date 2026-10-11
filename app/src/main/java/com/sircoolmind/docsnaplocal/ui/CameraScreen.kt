@@ -3,6 +3,8 @@ package com.sircoolmind.docsnaplocal.ui
 import android.content.Context
 import android.graphics.Bitmap
 import androidx.compose.foundation.clickable
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.Role
@@ -117,6 +119,8 @@ fun CameraScreen(reader: TextReader, onPhotoTaken: (Bitmap) -> Unit, onImport: (
     val torchState by controller.torchState.observeAsState(TorchState.OFF)
     val zoomState by controller.zoomState.observeAsState()
     val haptics = LocalHapticFeedback.current
+    var menuOpen by remember { mutableStateOf(false) }
+    var showAbout by remember { mutableStateOf(false) }
     var focusPoint by remember { mutableStateOf<Offset?>(null) }
     var liveFrame by remember { mutableStateOf<LiveFrame?>(null) }
     var frozen by remember { mutableStateOf<Frozen?>(null) }
@@ -189,6 +193,7 @@ fun CameraScreen(reader: TextReader, onPhotoTaken: (Bitmap) -> Unit, onImport: (
     }
 
     BackHandler(enabled = frozen != null) { unfreeze() }
+    if (showAbout) AboutDialog(onDismiss = { showAbout = false })
 
     Column(
         modifier = Modifier
@@ -235,6 +240,23 @@ fun CameraScreen(reader: TextReader, onPhotoTaken: (Bitmap) -> Unit, onImport: (
                         .background(Color(0x99000000), CircleShape)
                         .padding(horizontal = 12.dp, vertical = 6.dp),
                 )
+            }
+
+            if (frozen == null) {
+                Box(Modifier.align(Alignment.TopEnd)) {
+                    IconButton(onClick = { menuOpen = true }) {
+                        Icon(painterResource(R.drawable.ic_more), stringResource(R.string.more_options), tint = Color.White)
+                    }
+                    DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.about)) },
+                            onClick = {
+                                menuOpen = false
+                                showAbout = true
+                            },
+                        )
+                    }
+                }
             }
 
             frozen?.let { f ->
