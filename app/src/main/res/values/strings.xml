@@ -31,4 +31,11 @@
     <string name="back">Back</string>
     <string name="error_capture">Could not take the photo</string>
     <string name="error_scan">Could not read that photo</string>
+
+    <!-- Result screen -->
+    <string name="view_image">Image</string>
+    <string name="view_text">Text</string>
+    <string name="copy_all">Copy all</string>
+    <string name="share_text">Share text</string>
+    <string name="no_text_found">No text found</string>
 </resources>

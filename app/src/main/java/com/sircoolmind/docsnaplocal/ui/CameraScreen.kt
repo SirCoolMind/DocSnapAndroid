@@ -2,6 +2,10 @@ package com.sircoolmind.docsnaplocal.ui
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -84,7 +88,11 @@ enum class CaptureMode { Scan, Live }
 private class Frozen(val id: Int, val image: Bitmap, val page: OcrPage, val reading: Boolean)
 
 @Composable
-fun CameraScreen(reader: TextReader, onPhotoTaken: (Bitmap) -> Unit) {
+fun CameraScreen(reader: TextReader, onPhotoTaken: (Bitmap) -> Unit, onImport: (Uri) -> Unit) {
+    // The Photo Picker needs no storage permission.
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        uri?.let(onImport)
+    }
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val controller = remember { createController(context) }
@@ -240,7 +248,15 @@ fun CameraScreen(reader: TextReader, onPhotoTaken: (Bitmap) -> Unit) {
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Box(Modifier.size(48.dp))
+            IconButton(onClick = {
+                picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+            }) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_gallery),
+                    contentDescription = stringResource(R.string.import_photo),
+                    tint = Color.White,
+                )
+            }
             ShutterButton(enabled = !capturing, onClick = {
                 when {
                     mode == CaptureMode.Scan -> capture()

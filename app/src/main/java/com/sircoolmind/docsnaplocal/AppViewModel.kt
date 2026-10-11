@@ -1,6 +1,8 @@
 package com.sircoolmind.docsnaplocal
 
+import android.content.ContentResolver
 import android.graphics.Bitmap
+import android.net.Uri
 import androidx.annotation.StringRes
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -8,8 +10,13 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sircoolmind.docsnaplocal.geometry.Vec2
+import com.sircoolmind.docsnaplocal.image.decodeImport
+import com.sircoolmind.docsnaplocal.image.rotate
+import com.sircoolmind.docsnaplocal.image.scaleDown
 import com.sircoolmind.docsnaplocal.ocr.OcrPage
 import com.sircoolmind.docsnaplocal.ocr.TextReader
+import com.sircoolmind.docsnaplocal.ocr.bestRotation
+import com.sircoolmind.docsnaplocal.ocr.uprightScore
 import com.sircoolmind.docsnaplocal.scan.DocumentScanner
 import com.sircoolmind.docsnaplocal.scan.defaultCorners
 import kotlinx.coroutines.Dispatchers
@@ -24,6 +31,8 @@ sealed interface Screen {
     class Result(val image: Bitmap, val page: OcrPage) : Screen
 }
 
+private const val UPRIGHT_PROBE_SIDE = 1280
+
 /** Holds the Scan flow. Images live only here, in memory, and are dropped on leaving it. */
 class AppViewModel : ViewModel() {
     val reader = TextReader()
@@ -35,14 +44,32 @@ class AppViewModel : ViewModel() {
 
     private var job: Job? = null
 
-    fun onPhotoTaken(photo: Bitmap) = run(R.string.working_finding_page) {
-        val corners = withContext(Dispatchers.Default) { DocumentScanner.findCorners(photo) }
-        Screen.Corners(photo, corners ?: defaultCorners(photo.width.toFloat(), photo.height.toFloat()))
+    fun onPhotoTaken(photo: Bitmap) = run(R.string.working_finding_page) { cornersFor(photo) }
+
+    fun onImport(resolver: ContentResolver, uri: Uri) = run(R.string.working_finding_page) {
+        cornersFor(withContext(Dispatchers.IO) { decodeImport(resolver, uri) })
     }
 
     fun onCornersConfirmed(photo: Bitmap, corners: List<Vec2>) = run(R.string.working_reading) {
-        val page = withContext(Dispatchers.Default) { DocumentScanner.flatten(photo, corners) }
-        Screen.Result(page, reader.read(page))
+        val flat = withContext(Dispatchers.Default) { DocumentScanner.flatten(photo, corners) }
+        val upright = upright(flat)
+        Screen.Result(upright, reader.read(upright))
+    }
+
+    private suspend fun cornersFor(photo: Bitmap): Screen {
+        val corners = withContext(Dispatchers.Default) { DocumentScanner.findCorners(photo) }
+        return Screen.Corners(photo, corners ?: defaultCorners(photo.width.toFloat(), photo.height.toFloat()))
+    }
+
+    /** Turns a sideways or upside-down page Upright: reads a small copy four ways, keeps the best. */
+    private suspend fun upright(page: Bitmap): Bitmap {
+        val probe = withContext(Dispatchers.Default) { scaleDown(page, UPRIGHT_PROBE_SIDE) }
+        val scores = listOf(0, 90, 180, 270).associateWith { degrees ->
+            val turned = withContext(Dispatchers.Default) { rotate(probe, degrees) }
+            uprightScore(reader.read(turned))
+        }
+        val best = bestRotation(scores)
+        return if (best == 0) page else withContext(Dispatchers.Default) { rotate(page, best) }
     }
 
     fun backToCamera() {

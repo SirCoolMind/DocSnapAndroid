@@ -55,7 +55,11 @@ private fun DocSnapApp(model: AppViewModel) {
 
     when (val screen = model.screen) {
         Screen.Camera -> CameraPermissionGate {
-            CameraScreen(reader = model.reader, onPhotoTaken = model::onPhotoTaken)
+            CameraScreen(
+                reader = model.reader,
+                onPhotoTaken = model::onPhotoTaken,
+                onImport = { model.onImport(context.contentResolver, it) },
+            )
         }
         is Screen.Working -> WorkingScreen(screen.message, onCancel = model::backToCamera)
         is Screen.Corners -> CornersScreen(

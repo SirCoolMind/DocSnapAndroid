@@ -8,6 +8,7 @@ lifecycle = "2.10.0"
 camerax = "1.6.2"
 mlkitText = "16.0.1"
 opencv = "4.14.0"
+exifinterface = "1.4.2"
 junit = "4.13.2"
 
 [libraries]
@@ -26,6 +27,7 @@ androidx-camera-lifecycle = { group = "androidx.camera", name = "camera-lifecycl
 androidx-camera-view = { group = "androidx.camera", name = "camera-view", version.ref = "camerax" }
 mlkit-text-recognition = { group = "com.google.mlkit", name = "text-recognition", version.ref = "mlkitText" }
 opencv = { group = "org.opencv", name = "opencv", version.ref = "opencv" }
+androidx-exifinterface = { group = "androidx.exifinterface", name = "exifinterface", version.ref = "exifinterface" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 
 [plugins]
