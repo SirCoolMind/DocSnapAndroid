@@ -1,6 +1,22 @@
 package com.sircoolmind.docsnaplocal.ui
 
 import android.content.Context
+import android.graphics.Bitmap
+import androidx.activity.compose.BackHandler
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Surface
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.graphics.asImageBitmap
+import com.sircoolmind.docsnaplocal.geometry.ImageToScreen
+import com.sircoolmind.docsnaplocal.geometry.ScaleMode
+import com.sircoolmind.docsnaplocal.image.takeUprightPhoto
+import com.sircoolmind.docsnaplocal.ocr.OcrPage
+import com.sircoolmind.docsnaplocal.selection.Selection
+import com.sircoolmind.docsnaplocal.selection.remapSelection
+import com.sircoolmind.docsnaplocal.selection.selectAll
+import com.sircoolmind.docsnaplocal.selection.textOf
+import kotlinx.coroutines.launch
 import android.util.Size
 import androidx.camera.core.FocusMeteringAction
 import androidx.camera.core.ImageAnalysis
@@ -62,6 +78,9 @@ import java.util.concurrent.Executors
 
 enum class CaptureMode { Scan, Live }
 
+/** A Freeze: the image on screen and the OCR result for it, in its pixel coordinates. */
+private class Frozen(val id: Int, val image: Bitmap, val page: OcrPage, val reading: Boolean)
+
 @Composable
 fun CameraScreen(reader: TextReader) {
     val context = LocalContext.current
@@ -83,12 +102,17 @@ fun CameraScreen(reader: TextReader) {
     val torchState by controller.torchState.observeAsState(TorchState.OFF)
     var focusPoint by remember { mutableStateOf<Offset?>(null) }
     var liveFrame by remember { mutableStateOf<LiveFrame?>(null) }
+    var frozen by remember { mutableStateOf<Frozen?>(null) }
+    var selection by remember { mutableStateOf<Selection?>(null) }
+    var freezeCount by remember { mutableIntStateOf(0) }
+    val scope = rememberCoroutineScope()
 
-    val analysisExecutor = remember { Executors.newSingleThreadExecutor() }
-    DisposableEffect(Unit) { onDispose { analysisExecutor.shutdown() } }
-    LaunchedEffect(mode) {
-        if (mode == CaptureMode.Live) {
-            controller.setImageAnalysisAnalyzer(analysisExecutor, LiveAnalyzer(reader) { liveFrame = it })
+    val cameraExecutor = remember { Executors.newSingleThreadExecutor() }
+    DisposableEffect(Unit) { onDispose { cameraExecutor.shutdown() } }
+    val analysing = mode == CaptureMode.Live && frozen == null
+    LaunchedEffect(analysing) {
+        if (analysing) {
+            controller.setImageAnalysisAnalyzer(cameraExecutor, LiveAnalyzer(reader) { liveFrame = it })
         } else {
             controller.clearImageAnalysisAnalyzer()
             liveFrame = null
@@ -101,6 +125,41 @@ fun CameraScreen(reader: TextReader) {
             focusPoint = null
         }
     }
+
+    fun unfreeze() {
+        frozen = null
+        selection = null
+    }
+
+    // Show the frame on screen with the last live result at once, then swap in a full-res re-read.
+    fun freeze() {
+        val shown = previewView.bitmap ?: return
+        val width = shown.width.toFloat()
+        val height = shown.height.toFloat()
+        val livePage = liveFrame?.let { frame ->
+            val toShown = ImageToScreen(frame.visible, width, height, ScaleMode.Fit)
+            frame.page.mapBoxes(width, height) { toShown.toView(it) }
+        } ?: OcrPage(width, height, emptyList())
+        freezeCount += 1
+        val id = freezeCount
+        frozen = Frozen(id, shown, livePage, reading = true)
+        selection = null
+        scope.launch {
+            val reread = runCatching {
+                val photo = controller.takeUprightPhoto(cameraExecutor)
+                photo to reader.read(photo)
+            }
+            val current = frozen?.takeIf { it.id == id } ?: return@launch
+            reread.onSuccess { (photo, page) ->
+                selection = selection?.let { remapSelection(current.page, it, page) }
+                frozen = Frozen(id, photo, page, reading = false)
+            }.onFailure {
+                frozen = Frozen(id, current.image, current.page, reading = false)
+            }
+        }
+    }
+
+    BackHandler(enabled = frozen != null) { unfreeze() }
 
     Column(
         modifier = Modifier
@@ -123,7 +182,9 @@ fun CameraScreen(reader: TextReader) {
                     .pointerInput(mode) {
                         detectTapGestures { offset ->
                             // Live mode keeps continuous autofocus: a tap there means Freeze.
-                            if (mode == CaptureMode.Scan) {
+                            if (mode == CaptureMode.Live) {
+                                freeze()
+                            } else {
                                 val point = previewView.meteringPointFactory.createPoint(offset.x, offset.y)
                                 controller.cameraControl?.startFocusAndMetering(
                                     FocusMeteringAction.Builder(point).build(),
@@ -134,9 +195,31 @@ fun CameraScreen(reader: TextReader) {
                     },
             )
             focusPoint?.let { FocusRing(it) }
+
+            frozen?.let { f ->
+                val image = remember(f.image) { f.image.asImageBitmap() }
+                OcrImage(
+                    image = image,
+                    page = f.page,
+                    selection = selection,
+                    onSelectionChange = { selection = it },
+                    modifier = Modifier.fillMaxSize().background(Color.Black),
+                )
+                if (f.reading) ReadingChip(Modifier.align(Alignment.TopCenter).padding(12.dp))
+                selection?.let { sel ->
+                    SelectionBar(
+                        selectedText = f.page.textOf(sel),
+                        onSelectAll = { selection = f.page.selectAll() },
+                        modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp),
+                    )
+                }
+            }
         }
 
-        ModeSwitch(mode = mode, onModeChange = { mode = it })
+        ModeSwitch(mode = mode, onModeChange = {
+            unfreeze()
+            mode = it
+        })
 
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp),
@@ -144,7 +227,12 @@ fun CameraScreen(reader: TextReader) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(Modifier.size(48.dp))
-            ShutterButton(onClick = {})
+            ShutterButton(onClick = {
+                when {
+                    mode == CaptureMode.Live && frozen != null -> unfreeze()
+                    mode == CaptureMode.Live -> freeze()
+                }
+            })
             IconButton(onClick = { controller.enableTorch(torchState != TorchState.ON) }) {
                 Icon(
                     painter = painterResource(R.drawable.ic_flash),
@@ -197,6 +285,20 @@ private fun FocusRing(center: Offset) {
             .size(radius * 2)
             .border(2.dp, Color.White, CircleShape),
     )
+}
+
+@Composable
+fun ReadingChip(modifier: Modifier = Modifier) {
+    Surface(modifier = modifier, shape = CircleShape, color = Color(0xCC000000)) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = Color.White)
+            Text(stringResource(R.string.reading_full_res), color = Color.White, style = MaterialTheme.typography.bodyMedium)
+        }
+    }
 }
 
 @Composable

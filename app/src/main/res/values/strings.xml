@@ -13,4 +13,11 @@
     <string name="shutter">Shutter</string>
     <string name="flashlight">Flashlight</string>
     <string name="import_photo">Import photo</string>
+
+    <!-- Freeze and selection -->
+    <string name="reading_full_res">Reading full photo…</string>
+    <string name="copy">Copy</string>
+    <string name="select_all">Select all</string>
+    <string name="share">Share</string>
+    <string name="copied">Copied</string>
 </resources>
