@@ -4,12 +4,16 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.widget.Toast
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -18,8 +22,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.sircoolmind.docsnaplocal.R
 import com.sircoolmind.docsnaplocal.selection.snippet
@@ -27,10 +31,14 @@ import com.sircoolmind.docsnaplocal.selection.snippet
 /** Longest copied text quoted in full in the confirmation toast. */
 private const val TOAST_SNIPPET_CHARS = 80
 
-/** Copies [text] and confirms with a toast that quotes what was copied. */
+/**
+ * Copies [text]. Android 13 and later show their own clipboard preview, so the toast quoting
+ * what was copied is only shown on older versions.
+ */
 fun copyText(context: Context, text: String) {
     val clipboard = context.getSystemService(ClipboardManager::class.java)
     clipboard.setPrimaryClip(ClipData.newPlainText(context.getString(R.string.app_name), text))
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) return
     val message = context.getString(R.string.copied_text, snippet(text, TOAST_SNIPPET_CHARS))
     Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
 }
@@ -54,12 +62,16 @@ fun SelectionBar(selectedText: String, onSelectAll: () -> Unit, modifier: Modifi
         shadowElevation = 6.dp,
     ) {
         Column(Modifier.padding(top = 12.dp, start = 16.dp, end = 8.dp)) {
+            // Up to three lines tall; longer selections scroll inside it.
+            val style = MaterialTheme.typography.bodyMedium
+            val maxHeight = with(LocalDensity.current) { (style.lineHeight * 3).toDp() }
             Text(
                 text = selectedText,
-                style = MaterialTheme.typography.bodyMedium,
-                maxLines = 3,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(end = 8.dp),
+                style = style,
+                modifier = Modifier
+                    .padding(end = 8.dp)
+                    .heightIn(max = maxHeight)
+                    .verticalScroll(rememberScrollState()),
             )
             Row(Modifier.align(Alignment.End)) {
                 TextButton(onClick = { copyText(context, selectedText) }) { Text(stringResource(R.string.copy)) }
