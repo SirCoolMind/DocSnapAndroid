@@ -11,8 +11,8 @@ android {
         applicationId = "com.sircoolmind.docsnaplocal"
         minSdk = 29
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.0.1beta"
+        versionCode = 2
+        versionName = "0.1.0beta"
 
         ndk {
             abiFilters += "arm64-v8a"

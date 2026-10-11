@@ -1,6 +1,6 @@
 # 1. A native app with bundled, on-device OCR and no network permission
 
-- Status: accepted
+- Status: accepted; point 5 amended by ADR 0002 (APK published on GitHub Releases)
 - Date: 2026-10-11
 
 ## Context
