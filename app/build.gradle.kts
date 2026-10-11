@@ -58,5 +58,8 @@ dependencies {
     // Bundled model: ships in the APK, no download at runtime (ADR 0001).
     implementation(libs.mlkit.text.recognition)
 
+    // Corners and Flatten. Ships every ABI; abiFilters keeps arm64-v8a only.
+    implementation(libs.opencv)
+
     testImplementation(libs.junit)
 }

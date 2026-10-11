@@ -20,4 +20,15 @@
     <string name="select_all">Select all</string>
     <string name="share">Share</string>
     <string name="copied">Copied</string>
+
+    <!-- Scan -->
+    <string name="working_finding_page">Finding the page…</string>
+    <string name="working_reading">Reading text…</string>
+    <string name="corners_hint">Drag the corners to the page edges</string>
+    <string name="retake">Retake</string>
+    <string name="reset_corners">Whole photo</string>
+    <string name="read_text">Read text</string>
+    <string name="back">Back</string>
+    <string name="error_capture">Could not take the photo</string>
+    <string name="error_scan">Could not read that photo</string>
 </resources>

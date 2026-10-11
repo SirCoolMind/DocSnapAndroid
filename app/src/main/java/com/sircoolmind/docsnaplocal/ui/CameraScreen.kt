@@ -2,7 +2,9 @@ package com.sircoolmind.docsnaplocal.ui
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.mutableIntStateOf
@@ -82,7 +84,7 @@ enum class CaptureMode { Scan, Live }
 private class Frozen(val id: Int, val image: Bitmap, val page: OcrPage, val reading: Boolean)
 
 @Composable
-fun CameraScreen(reader: TextReader) {
+fun CameraScreen(reader: TextReader, onPhotoTaken: (Bitmap) -> Unit) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val controller = remember { createController(context) }
@@ -98,7 +100,8 @@ fun CameraScreen(reader: TextReader) {
         onDispose { controller.unbind() }
     }
 
-    var mode by remember { mutableStateOf(CaptureMode.Scan) }
+    var mode by rememberSaveable { mutableStateOf(CaptureMode.Scan) }
+    var capturing by remember { mutableStateOf(false) }
     val torchState by controller.torchState.observeAsState(TorchState.OFF)
     var focusPoint by remember { mutableStateOf<Offset?>(null) }
     var liveFrame by remember { mutableStateOf<LiveFrame?>(null) }
@@ -156,6 +159,17 @@ fun CameraScreen(reader: TextReader) {
             }.onFailure {
                 frozen = Frozen(id, current.image, current.page, reading = false)
             }
+        }
+    }
+
+    fun capture() {
+        if (capturing) return
+        capturing = true
+        scope.launch {
+            runCatching { controller.takeUprightPhoto(cameraExecutor) }
+                .onSuccess(onPhotoTaken)
+                .onFailure { Toast.makeText(context, R.string.error_capture, Toast.LENGTH_SHORT).show() }
+            capturing = false
         }
     }
 
@@ -227,10 +241,11 @@ fun CameraScreen(reader: TextReader) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(Modifier.size(48.dp))
-            ShutterButton(onClick = {
+            ShutterButton(enabled = !capturing, onClick = {
                 when {
-                    mode == CaptureMode.Live && frozen != null -> unfreeze()
-                    mode == CaptureMode.Live -> freeze()
+                    mode == CaptureMode.Scan -> capture()
+                    frozen != null -> unfreeze()
+                    else -> freeze()
                 }
             })
             IconButton(onClick = { controller.enableTorch(torchState != TorchState.ON) }) {
