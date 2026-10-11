@@ -5,7 +5,12 @@
     <!-- The only permission. Never add INTERNET (see docs/adr/0001). -->
     <uses-permission android:name="android.permission.CAMERA" />
 
-    <!-- Libraries ask for these; the app never uses the network, so strip them from the merge. -->
+    <!-- Libraries ask for these; the app never uses the network, so strip them from the merge.
+         INTERNET comes from ML Kit's telemetry (datatransport); without it Android blocks the
+         telemetry, which is the point (ADR 0001). -->
+    <uses-permission
+        android:name="android.permission.INTERNET"
+        tools:node="remove" />
     <uses-permission
         android:name="android.permission.ACCESS_NETWORK_STATE"
         tools:node="remove" />

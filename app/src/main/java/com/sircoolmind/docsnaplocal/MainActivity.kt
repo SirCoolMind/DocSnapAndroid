@@ -9,6 +9,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sircoolmind.docsnaplocal.ui.CameraPermissionGate
 import com.sircoolmind.docsnaplocal.ui.CameraScreen
 
@@ -19,8 +20,9 @@ class MainActivity : ComponentActivity() {
         setContent {
             MaterialTheme(colorScheme = darkColorScheme()) {
                 Surface(modifier = Modifier.fillMaxSize()) {
+                    val model: AppViewModel = viewModel()
                     CameraPermissionGate {
-                        CameraScreen()
+                        CameraScreen(model.reader)
                     }
                 }
             }

@@ -54,12 +54,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.sircoolmind.docsnaplocal.R
+import com.sircoolmind.docsnaplocal.ocr.LiveAnalyzer
+import com.sircoolmind.docsnaplocal.ocr.LiveFrame
+import com.sircoolmind.docsnaplocal.ocr.TextReader
 import kotlinx.coroutines.delay
+import java.util.concurrent.Executors
 
 enum class CaptureMode { Scan, Live }
 
 @Composable
-fun CameraScreen() {
+fun CameraScreen(reader: TextReader) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val controller = remember { createController(context) }
@@ -78,6 +82,18 @@ fun CameraScreen() {
     var mode by remember { mutableStateOf(CaptureMode.Scan) }
     val torchState by controller.torchState.observeAsState(TorchState.OFF)
     var focusPoint by remember { mutableStateOf<Offset?>(null) }
+    var liveFrame by remember { mutableStateOf<LiveFrame?>(null) }
+
+    val analysisExecutor = remember { Executors.newSingleThreadExecutor() }
+    DisposableEffect(Unit) { onDispose { analysisExecutor.shutdown() } }
+    LaunchedEffect(mode) {
+        if (mode == CaptureMode.Live) {
+            controller.setImageAnalysisAnalyzer(analysisExecutor, LiveAnalyzer(reader) { liveFrame = it })
+        } else {
+            controller.clearImageAnalysisAnalyzer()
+            liveFrame = null
+        }
+    }
 
     LaunchedEffect(focusPoint) {
         if (focusPoint != null) {
@@ -95,6 +111,7 @@ fun CameraScreen() {
     ) {
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
             AndroidView(factory = { previewView }, modifier = Modifier.fillMaxSize())
+            if (mode == CaptureMode.Live) LiveOverlay(liveFrame, Modifier.fillMaxSize())
             Box(
                 modifier = Modifier
                     .fillMaxSize()

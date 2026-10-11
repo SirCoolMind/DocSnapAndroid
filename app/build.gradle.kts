@@ -55,5 +55,8 @@ dependencies {
     implementation(libs.androidx.camera.lifecycle)
     implementation(libs.androidx.camera.view)
 
+    // Bundled model: ships in the APK, no download at runtime (ADR 0001).
+    implementation(libs.mlkit.text.recognition)
+
     testImplementation(libs.junit)
 }
