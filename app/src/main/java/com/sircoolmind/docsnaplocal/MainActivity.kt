@@ -24,10 +24,13 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.sircoolmind.docsnaplocal.image.clearCache
 import com.sircoolmind.docsnaplocal.ui.CameraPermissionGate
 import com.sircoolmind.docsnaplocal.ui.CameraScreen
 import com.sircoolmind.docsnaplocal.ui.CornersScreen
 import com.sircoolmind.docsnaplocal.ui.ResultScreen
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -51,6 +54,12 @@ private fun DocSnapApp(model: AppViewModel) {
             Toast.makeText(context, it, Toast.LENGTH_LONG).show()
             model.clearError()
         }
+    }
+
+    // On app start and whenever a scan is left, nothing from it may remain.
+    val atCamera = model.screen == Screen.Camera
+    LaunchedEffect(atCamera) {
+        if (atCamera) withContext(Dispatchers.IO) { context.clearCache() }
     }
 
     when (val screen = model.screen) {

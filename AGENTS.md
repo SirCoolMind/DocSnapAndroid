@@ -17,7 +17,8 @@ anything; it holds the agreed design and the build plan. Decisions live in `docs
 
 The build runs in WSL (`Ubuntu-24.04`) with the Android SDK at `/opt/android-sdk` and JDK 17 at
 `/usr/lib/jvm/java-17-openjdk-amd64`. Run `build-local.bat` from Windows; it calls
-`./gradlew assembleDebug` in WSL and opens the APK folder. The owner copies the APK to the phone
+`./gradlew assembleDebug` in WSL, runs `scripts/check-apk.sh` (permissions and ABIs), and opens the
+APK folder. The owner copies the APK to the phone
 manually. Unit tests: `./gradlew testDebugUnitTest` in WSL.
 
 ## Agent skills
