@@ -51,4 +51,8 @@
     <string name="about_link_note">Opens in your browser</string>
     <string name="no_browser">No browser to open the link</string>
     <string name="close">Close</string>
+
+    <!-- Battery -->
+    <string name="camera_paused">Camera paused to save battery</string>
+    <string name="tap_to_resume">Tap anywhere to resume</string>
 </resources>

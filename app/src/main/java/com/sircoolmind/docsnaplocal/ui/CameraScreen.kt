@@ -2,6 +2,9 @@ package com.sircoolmind.docsnaplocal.ui
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.os.SystemClock
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.foundation.clickable
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -90,6 +93,9 @@ import java.util.concurrent.Executors
 
 enum class CaptureMode { Scan, Live }
 
+/** The camera turns off after this long without a touch, to save battery. */
+private const val IDLE_TIMEOUT_MS = 60_000L
+
 /** A Freeze: the image on screen and the OCR result for it, in its pixel coordinates. */
 private class Frozen(val id: Int, val image: Bitmap, val page: OcrPage, val reading: Boolean)
 
@@ -109,11 +115,6 @@ fun CameraScreen(reader: TextReader, onPhotoTaken: (Bitmap) -> Unit, onImport: (
             this.controller = controller
         }
     }
-    DisposableEffect(lifecycleOwner) {
-        controller.bindToLifecycle(lifecycleOwner)
-        onDispose { controller.unbind() }
-    }
-
     var mode by rememberSaveable { mutableStateOf(CaptureMode.Scan) }
     var capturing by remember { mutableStateOf(false) }
     val torchState by controller.torchState.observeAsState(TorchState.OFF)
@@ -127,6 +128,53 @@ fun CameraScreen(reader: TextReader, onPhotoTaken: (Bitmap) -> Unit, onImport: (
     var selection by remember { mutableStateOf<Selection?>(null) }
     var freezeCount by remember { mutableIntStateOf(0) }
     val scope = rememberCoroutineScope()
+
+    var idle by remember { mutableStateOf(false) }
+    var torchWanted by remember { mutableStateOf(false) }
+    val lastTouch = remember { longArrayOf(SystemClock.elapsedRealtime()) }
+
+    // The camera runs only while it is needed: not when idle, and not while a Freeze that has
+    // finished its full-res re-read is being read by the user.
+    val cameraOn = !idle && frozen?.reading != false
+    DisposableEffect(lifecycleOwner, cameraOn) {
+        if (cameraOn) controller.bindToLifecycle(lifecycleOwner)
+        onDispose { controller.unbind() }
+    }
+    // Unbinding turns the flashlight off; turn it back on once the camera is up again.
+    LaunchedEffect(cameraOn) {
+        if (!cameraOn || !torchWanted) return@LaunchedEffect
+        repeat(30) {
+            if (controller.cameraInfo != null) {
+                controller.enableTorch(true)
+                return@LaunchedEffect
+            }
+            delay(100)
+        }
+    }
+    // Pause after a minute without a touch.
+    LaunchedEffect(cameraOn) {
+        if (!cameraOn) return@LaunchedEffect
+        lastTouch[0] = SystemClock.elapsedRealtime()
+        while (true) {
+            val left = lastTouch[0] + IDLE_TIMEOUT_MS - SystemClock.elapsedRealtime()
+            if (left <= 0) {
+                idle = true
+                break
+            }
+            delay(left)
+        }
+    }
+
+    // The low-res analysis stream only runs in Live mode.
+    LaunchedEffect(mode) {
+        controller.setEnabledUseCases(
+            if (mode == CaptureMode.Live) {
+                CameraController.IMAGE_CAPTURE or CameraController.IMAGE_ANALYSIS
+            } else {
+                CameraController.IMAGE_CAPTURE
+            },
+        )
+    }
 
     val cameraExecutor = remember { Executors.newSingleThreadExecutor() }
     DisposableEffect(Unit) { onDispose { cameraExecutor.shutdown() } }
@@ -200,7 +248,21 @@ fun CameraScreen(reader: TextReader, onPhotoTaken: (Bitmap) -> Unit, onImport: (
             .fillMaxSize()
             .background(Color.Black)
             .statusBarsPadding()
-            .navigationBarsPadding(),
+            .navigationBarsPadding()
+            .pointerInput(Unit) {
+                // Sees every touch before the controls do: resets the idle timer, and when
+                // paused, the first touch only wakes the camera.
+                awaitPointerEventScope {
+                    while (true) {
+                        val event = awaitPointerEvent(PointerEventPass.Initial)
+                        lastTouch[0] = SystemClock.elapsedRealtime()
+                        if (idle && event.type == PointerEventType.Press) {
+                            event.changes.forEach { it.consume() }
+                            idle = false
+                        }
+                    }
+                }
+            },
     ) {
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
             AndroidView(factory = { previewView }, modifier = Modifier.fillMaxSize())
@@ -241,6 +303,8 @@ fun CameraScreen(reader: TextReader, onPhotoTaken: (Bitmap) -> Unit, onImport: (
                         .padding(horizontal = 12.dp, vertical = 6.dp),
                 )
             }
+
+            if (idle) PausedOverlay()
 
             if (frozen == null) {
                 Box(Modifier.align(Alignment.TopEnd)) {
@@ -305,7 +369,10 @@ fun CameraScreen(reader: TextReader, onPhotoTaken: (Bitmap) -> Unit, onImport: (
                     else -> freeze()
                 }
             })
-            IconButton(onClick = { controller.enableTorch(torchState != TorchState.ON) }) {
+            IconButton(onClick = {
+                torchWanted = torchState != TorchState.ON
+                controller.enableTorch(torchWanted)
+            }) {
                 Icon(
                     painter = painterResource(R.drawable.ic_flash),
                     contentDescription = stringResource(R.string.flashlight),
@@ -320,7 +387,7 @@ private fun createController(context: Context) = LifecycleCameraController(conte
     // Gestures are handled in Compose so that a tap can mean Freeze in Live mode.
     isTapToFocusEnabled = false
     isPinchToZoomEnabled = false
-    setEnabledUseCases(CameraController.IMAGE_CAPTURE or CameraController.IMAGE_ANALYSIS)
+    setEnabledUseCases(CameraController.IMAGE_CAPTURE)
     val fourByThree = AspectRatioStrategy.RATIO_4_3_FALLBACK_AUTO_STRATEGY
     previewResolutionSelector = ResolutionSelector.Builder()
         .setAspectRatioStrategy(fourByThree)
@@ -361,6 +428,18 @@ private fun FocusRing(center: Offset) {
             .size(radius * 2)
             .border(2.dp, Color.White, CircleShape),
     )
+}
+
+@Composable
+private fun PausedOverlay() {
+    Column(
+        modifier = Modifier.fillMaxSize().background(Color(0xF0000000)),
+        verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(stringResource(R.string.camera_paused), color = Color.White, style = MaterialTheme.typography.titleMedium)
+        Text(stringResource(R.string.tap_to_resume), color = Color.LightGray, style = MaterialTheme.typography.bodyMedium)
+    }
 }
 
 @Composable
