@@ -139,4 +139,12 @@ class SelectionTest {
         val fullRes = page("RM 5\nRM 10\nRM 20")
         assertNull(remapSelection(live, Selection(2, 2), fullRes))
     }
+
+    @Test
+    fun snippetFlattensAndShortens() {
+        assertEquals("Total RM 120", snippet("Total RM 120", 40))
+        assertEquals("Invoice number 42 Due 1 March", snippet("Invoice number 42\nDue 1 March\n\n", 40))
+        assertEquals("Invoice number…", snippet("Invoice number 42", 16))
+        assertEquals("", snippet("  \n ", 10))
+    }
 }

@@ -89,3 +89,9 @@ private fun OcrPage.occurrencesOf(run: List<String>): List<Int> {
     val texts = words.map { it.word.text }
     return (0..texts.size - run.size).filter { start -> run.indices.all { texts[start + it] == run[it] } }
 }
+
+/** [text] on one line with runs of whitespace collapsed, cut to [maxChars] with an ellipsis. */
+fun snippet(text: String, maxChars: Int): String {
+    val flat = text.trim().replace(Regex("""\s+"""), " ")
+    return if (flat.length <= maxChars) flat else flat.take(maxChars - 1).trimEnd() + "…"
+}

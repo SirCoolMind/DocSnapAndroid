@@ -20,7 +20,7 @@
     <string name="copy">Copy</string>
     <string name="select_all">Select all</string>
     <string name="share">Share</string>
-    <string name="copied">Copied</string>
+    <string name="copied_text">Copied: “%1$s”</string>
 
     <!-- Scan -->
     <string name="working_finding_page">Finding the page…</string>
