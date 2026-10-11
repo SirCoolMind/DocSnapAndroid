@@ -87,3 +87,20 @@ class ImageToScreen(
 
     fun toImage(p: Vec2) = Vec2((p.x - offsetX) / scale, (p.y - offsetY) / scale)
 }
+
+/**
+ * Clips a [src] rectangle to an image of [width] x [height] and shrinks [dst] in proportion, so
+ * drawing part of an image never reads outside it. Null when nothing of [src] is inside.
+ */
+fun clipDraw(src: Box, dst: Box, width: Float, height: Float): Pair<Box, Box>? {
+    val clipped = Box(max(src.left, 0f), max(src.top, 0f), min(src.right, width), min(src.bottom, height))
+    if (clipped.width <= 0f || clipped.height <= 0f) return null
+    val sx = dst.width / src.width
+    val sy = dst.height / src.height
+    return clipped to Box(
+        dst.left + (clipped.left - src.left) * sx,
+        dst.top + (clipped.top - src.top) * sy,
+        dst.right - (src.right - clipped.right) * sx,
+        dst.bottom - (src.bottom - clipped.bottom) * sy,
+    )
+}

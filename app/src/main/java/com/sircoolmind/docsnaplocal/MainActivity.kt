@@ -74,6 +74,7 @@ private fun DocSnapApp(model: AppViewModel) {
         is Screen.Corners -> CornersScreen(
             photo = screen.photo,
             initialCorners = screen.corners,
+            found = screen.found,
             onConfirm = { model.onCornersConfirmed(screen.photo, it) },
             onRetake = model::backToCamera,
         )

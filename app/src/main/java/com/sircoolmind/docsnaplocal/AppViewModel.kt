@@ -27,7 +27,7 @@ import kotlinx.coroutines.withContext
 sealed interface Screen {
     data object Camera : Screen
     class Working(@param:StringRes val message: Int) : Screen
-    class Corners(val photo: Bitmap, val corners: List<Vec2>) : Screen
+    class Corners(val photo: Bitmap, val corners: List<Vec2>, val found: Boolean) : Screen
     class Result(val image: Bitmap, val page: OcrPage) : Screen
 }
 
@@ -58,7 +58,11 @@ class AppViewModel : ViewModel() {
 
     private suspend fun cornersFor(photo: Bitmap): Screen {
         val corners = withContext(Dispatchers.Default) { DocumentScanner.findCorners(photo) }
-        return Screen.Corners(photo, corners ?: defaultCorners(photo.width.toFloat(), photo.height.toFloat()))
+        return Screen.Corners(
+            photo,
+            corners ?: defaultCorners(photo.width.toFloat(), photo.height.toFloat()),
+            found = corners != null,
+        )
     }
 
     /** Turns a sideways or upside-down page Upright: reads a small copy four ways, keeps the best. */

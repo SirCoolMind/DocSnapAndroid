@@ -13,6 +13,7 @@
     <string name="shutter">Shutter</string>
     <string name="flashlight">Flashlight</string>
     <string name="import_photo">Import photo</string>
+    <string name="zoom_ratio">%1$.1f×</string>
 
     <!-- Freeze and selection -->
     <string name="reading_full_res">Reading full photo…</string>
@@ -25,6 +26,7 @@
     <string name="working_finding_page">Finding the page…</string>
     <string name="working_reading">Reading text…</string>
     <string name="corners_hint">Drag the corners to the page edges</string>
+    <string name="corners_not_found">No page edge found. Drag the corners to the page, or read the whole photo.</string>
     <string name="retake">Retake</string>
     <string name="reset_corners">Whole photo</string>
     <string name="read_text">Read text</string>

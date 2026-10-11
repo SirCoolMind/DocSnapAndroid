@@ -2,6 +2,10 @@ package com.sircoolmind.docsnaplocal.ui
 
 import android.content.Context
 import android.graphics.Bitmap
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.semantics.Role
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -111,6 +115,8 @@ fun CameraScreen(reader: TextReader, onPhotoTaken: (Bitmap) -> Unit, onImport: (
     var mode by rememberSaveable { mutableStateOf(CaptureMode.Scan) }
     var capturing by remember { mutableStateOf(false) }
     val torchState by controller.torchState.observeAsState(TorchState.OFF)
+    val zoomState by controller.zoomState.observeAsState()
+    val haptics = LocalHapticFeedback.current
     var focusPoint by remember { mutableStateOf<Offset?>(null) }
     var liveFrame by remember { mutableStateOf<LiveFrame?>(null) }
     var frozen by remember { mutableStateOf<Frozen?>(null) }
@@ -155,6 +161,7 @@ fun CameraScreen(reader: TextReader, onPhotoTaken: (Bitmap) -> Unit, onImport: (
         val id = freezeCount
         frozen = Frozen(id, shown, livePage, reading = true)
         selection = null
+        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
         scope.launch {
             val reread = runCatching {
                 val photo = controller.takeUprightPhoto(cameraExecutor)
@@ -217,6 +224,18 @@ fun CameraScreen(reader: TextReader, onPhotoTaken: (Bitmap) -> Unit, onImport: (
                     },
             )
             focusPoint?.let { FocusRing(it) }
+            zoomState?.zoomRatio?.takeIf { frozen == null && it > 1.05f }?.let { ratio ->
+                Text(
+                    stringResource(R.string.zoom_ratio, ratio),
+                    color = Color.White,
+                    style = MaterialTheme.typography.labelLarge,
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(12.dp)
+                        .background(Color(0x99000000), CircleShape)
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                )
+            }
 
             frozen?.let { f ->
                 val image = remember(f.image) { f.image.asImageBitmap() }
@@ -284,8 +303,12 @@ private fun createController(context: Context) = LifecycleCameraController(conte
     previewResolutionSelector = ResolutionSelector.Builder()
         .setAspectRatioStrategy(fourByThree)
         .build()
+    // About 12 MP is plenty for OCR; a 50 or 200 MP mode would only cost memory and time.
     imageCaptureResolutionSelector = ResolutionSelector.Builder()
         .setAspectRatioStrategy(fourByThree)
+        .setResolutionStrategy(
+            ResolutionStrategy(Size(4000, 3000), ResolutionStrategy.FALLBACK_RULE_CLOSEST_LOWER_THEN_HIGHER),
+        )
         .build()
     imageAnalysisResolutionSelector = ResolutionSelector.Builder()
         .setAspectRatioStrategy(fourByThree)
@@ -362,6 +385,6 @@ fun ShutterButton(onClick: () -> Unit, enabled: Boolean = true) {
             .clip(CircleShape)
             .background(if (enabled) Color.White else Color.Gray)
             .semantics { contentDescription = label }
-            .pointerInput(enabled) { if (enabled) detectTapGestures { onClick() } },
+            .clickable(enabled = enabled, role = Role.Button, onClick = onClick),
     )
 }

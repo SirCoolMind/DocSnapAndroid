@@ -19,7 +19,9 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.IntSize
@@ -64,6 +66,9 @@ fun OcrImage(
         }
     }
     val onChange by rememberUpdatedState(onSelectionChange)
+    val haptics = LocalHapticFeedback.current
+    // A selection from another reading of the page must never index past this one's words.
+    val shown = selection?.takeIf { it.last < page.words.size }
     val touchSlop = with(androidx.compose.ui.platform.LocalDensity.current) { 8.dp.toPx() }
 
     Box(modifier.onSizeChanged { viewSize = it }) {
@@ -79,8 +84,18 @@ fun OcrImage(
                 .pointerInput(page, transform) {
                     detectTapGestures(
                         onTap = { p -> onChange(page.wordAt(toImage(p), slop)?.let { Selection(it, it) }) },
-                        onLongPress = { p -> page.wordAt(toImage(p), slop)?.let { onChange(page.lineSelection(it)) } },
-                        onDoubleTap = { p -> page.wordAt(toImage(p), slop)?.let { onChange(page.blockSelection(it)) } },
+                        onLongPress = { p ->
+                            page.wordAt(toImage(p), slop)?.let {
+                                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                onChange(page.lineSelection(it))
+                            }
+                        },
+                        onDoubleTap = { p ->
+                            page.wordAt(toImage(p), slop)?.let {
+                                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                onChange(page.blockSelection(it))
+                            }
+                        },
                     )
                 }
                 .pointerInput(page, transform) {
@@ -103,9 +118,9 @@ fun OcrImage(
                 val b = transform.toView(block.box)
                 drawRoundRect(BoxStroke, Offset(b.left, b.top), Size(b.width, b.height), radius, style = Stroke(2f))
             }
-            if (selection != null) {
+            if (shown != null) {
                 // One highlight per line, spanning its selected words.
-                page.words.subList(selection.first, selection.last + 1)
+                page.words.subList(shown.first, shown.last + 1)
                     .groupBy { it.line }
                     .values
                     .forEach { words ->

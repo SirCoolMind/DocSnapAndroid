@@ -1,6 +1,7 @@
 package com.sircoolmind.docsnaplocal.geometry
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 class GeometryTest {
@@ -98,5 +99,25 @@ class GeometryTest {
         assertEquals(0f, b.distanceTo(Vec2(5f, 5f)), 0f)
         assertEquals(5f, b.distanceTo(Vec2(15f, 5f)), 0.001f)
         assertEquals(5f, b.distanceTo(Vec2(13f, 14f)), 0.001f)
+    }
+
+    @Test
+    fun clipDrawShrinksDestinationWithSource() {
+        // A magnifier on the image's top-left corner: half the source is outside the image.
+        val (src, dst) = clipDraw(Box(-10f, -10f, 10f, 10f), Box(0f, 0f, 100f, 100f), 50f, 50f)!!
+        assertBox(Box(0f, 0f, 10f, 10f), src)
+        assertBox(Box(50f, 50f, 100f, 100f), dst)
+    }
+
+    @Test
+    fun clipDrawKeepsInsideSourceAsIs() {
+        val (src, dst) = clipDraw(Box(10f, 10f, 20f, 20f), Box(0f, 0f, 40f, 40f), 50f, 50f)!!
+        assertBox(Box(10f, 10f, 20f, 20f), src)
+        assertBox(Box(0f, 0f, 40f, 40f), dst)
+    }
+
+    @Test
+    fun clipDrawOutsideImageIsNull() {
+        assertNull(clipDraw(Box(60f, 0f, 80f, 20f), Box(0f, 0f, 40f, 40f), 50f, 50f))
     }
 }
